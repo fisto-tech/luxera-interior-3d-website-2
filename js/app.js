@@ -140,9 +140,82 @@
   const progressCircleFill = document.querySelector('.progress-circle-fill');
   const contactForm = document.getElementById('contact-form');
   const contactStatus = document.getElementById('contact-status');
+  const bgmAudio = document.getElementById('bgm-audio');
+  const bgmToggleButtons = Array.from(document.querySelectorAll('.bgm-toggle-btn'));
   const hamburger = document.getElementById('hamburger');
   const navMenu = document.getElementById('nav-menu');
   const navLinks = document.querySelectorAll('.nav-link');
+
+  // ============================================
+  // BACKGROUND MUSIC CONTROLS
+  // ============================================
+  let bgmEnabled = true;
+  let bgmRequestPending = false;
+
+  function updateBgmButton() {
+    if (!bgmToggleButtons.length) return;
+    const isPlaying = !bgmAudio.paused && !bgmAudio.ended;
+    bgmToggleButtons.forEach(function (button) {
+      button.classList.toggle('active', isPlaying);
+      button.setAttribute('aria-pressed', String(isPlaying));
+      button.innerHTML = isPlaying
+        ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>`
+        : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M16.85 7.15c1.4 1.4 1.4 3.67 0 5.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><line x1="21" y1="3" x2="3" y2="21"/></svg>`;
+    });
+  }
+
+  function tryPlayBgm() {
+    if (!bgmAudio || !bgmEnabled) return;
+    if (bgmAudio.paused || bgmAudio.ended) {
+      bgmRequestPending = true;
+      bgmAudio.volume = 0.24;
+      const playPromise = bgmAudio.play();
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(function () {
+          // Autoplay blocked. Wait for user interaction.
+        }).finally(updateBgmButton);
+      } else {
+        updateBgmButton();
+      }
+    }
+  }
+
+  function toggleBgm() {
+    bgmEnabled = !bgmEnabled;
+    if (!bgmEnabled) {
+      bgmAudio.pause();
+    } else {
+      tryPlayBgm();
+    }
+    updateBgmButton();
+  }
+
+  function createBgmInteractionListener() {
+    function onFirstInteraction() {
+      if (bgmEnabled) {
+        tryPlayBgm();
+      }
+      document.body.removeEventListener('pointerdown', onFirstInteraction, { capture: true });
+      document.body.removeEventListener('keydown', onFirstInteraction, { capture: true });
+    }
+    document.body.addEventListener('pointerdown', onFirstInteraction, { capture: true, passive: true });
+    document.body.addEventListener('keydown', onFirstInteraction, { capture: true, passive: true });
+  }
+
+  bgmToggleButtons.forEach(function (button) {
+    button.addEventListener('click', function (event) {
+      event.stopPropagation();
+      toggleBgm();
+    });
+  });
+
+  if (bgmAudio) {
+    bgmAudio.addEventListener('play', updateBgmButton);
+    bgmAudio.addEventListener('pause', updateBgmButton);
+  }
+
+  createBgmInteractionListener();
+  tryPlayBgm();
 
   // ============================================
   // STATE VARIABLES
@@ -475,6 +548,50 @@
     });
   }
 
+  function animateHeroText() {
+    const tl = gsap.timeline({
+      defaults: { ease: 'power4.out', duration: 1.8 }
+    });
+
+    tl.fromTo('#hero-image', { scale: 1.1, filter: 'blur(10px) brightness(0.5)' }, { 
+      scale: 1, 
+      filter: 'blur(0px) brightness(1)', 
+      duration: 3 
+    }, 0);
+
+    tl.fromTo('.hero-content', { 
+      opacity: 0, 
+      y: 40,
+      scale: 0.98,
+      backgroundColor: 'rgba(0,0,0,0)',
+      backdropFilter: 'blur(0px)'
+    }, { 
+      opacity: 1, 
+      y: 0,
+      scale: 1, 
+      backgroundColor: 'rgba(0,0,0,0.55)',
+      backdropFilter: 'blur(18px)',
+      duration: 2.5 
+    }, 0.3);
+
+    tl.to('.hero-label span', {
+      y: 0,
+      duration: 1.5,
+    }, 0.8);
+
+    tl.to('.hero-title-line span', {
+      y: 0,
+      stagger: 0.2,
+      duration: 2,
+    }, 1.1);
+
+    tl.to('.scroll-indicator', {
+      opacity: 1,
+      y: 0,
+      duration: 1.5
+    }, 1.5);
+  }
+
   function preloadImages() {
     var start = 0;
     var preloadedCount = 0;
@@ -659,6 +776,7 @@
     animFrameId = requestAnimationFrame(loop);
     renderFrame(0);
     initScrollAnimations();
+    animateHeroText();
 
     canvasElement.classList.add('active');
     scrollContainer.classList.add('active');
